@@ -1,0 +1,9 @@
+flask
+flask-cors
+openai
+pandas
+matplotlib
+seaborn
+mysql-connector-python
+python-dotenv
+gunicorn
