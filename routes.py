@@ -2,16 +2,23 @@ from flask import Blueprint, request, jsonify
 import logging
 import base64
 import json
+import uuid
+import traceback
 
 from database import execute_query
 from nlp_processor import process_natural_language_query
 from visualization import generate_visualization
+from agent_processor import ConversationManager
 
 # Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Create Blueprint
 api = Blueprint('api', __name__)
+
+# Initialize the conversation manager
+conversation_manager = ConversationManager()
 
 @api.route('/query', methods=['POST'])
 def process_query():
@@ -28,6 +35,8 @@ def process_query():
         data = request.json
         query = data.get('query')
         merchant_id = data.get('merchant_id')
+        
+        logger.info(f"Received visualization query: {query}")
         
         if not query:
             return jsonify({"error": "No query provided"}), 400
@@ -63,7 +72,52 @@ def process_query():
         
     except Exception as e:
         logger.error(f"Error processing query: {str(e)}")
+        logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
+@api.route('/agent', methods=['POST'])
+def process_agent_request():
+    """
+    Process a request for the agentic POS assistant.
+    
+    Request body should contain:
+    {
+        "query": "Add a Chicken Tikka Roll for €6 under Fast Food",
+        "session_id": "unique-session-id",  # Optional, will create one if not provided
+        "merchant_id": 123  # Optional, defaults to 1
+    }
+    """
+    try:
+        data = request.json
+        message = data.get('query')
+        session_id = data.get('session_id', str(uuid.uuid4()))
+        merchant_id = data.get('merchant_id', 1)
+        
+        logger.info(f"Received agent request - session: {session_id}, message: {message}, merchant: {merchant_id}")
+        
+        if not message:
+            return jsonify({"error": "No message provided"}), 400
+        
+        # Process agent request
+        logger.info(f"Processing agent request: {message}")
+        response = conversation_manager.process_message(session_id, message, merchant_id)
+        
+        # Add session_id to the response
+        response["session_id"] = session_id
+        
+        # Log the response for debugging
+        logger.info(f"Agent response: {response}")
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error processing agent request: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            "success": False,
+            "message": f"Error processing request: {str(e)}",
+            "action_taken": None
+        }), 500
 
 @api.route('/health', methods=['GET'])
 def health_check():

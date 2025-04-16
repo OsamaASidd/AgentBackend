@@ -62,13 +62,15 @@ def execute_query(query, params=None):
         else:
             cursor.execute(query)
         
+        query_type = query.strip().split()[0].lower()
+        
+        if query_type in ["insert", "update", "delete"]:
+            connection.commit()
+            if query_type == "insert":
+                return [{"id": cursor.lastrowid}]
+            
         results = cursor.fetchall()
-        
-        # If we have results and they're in dictionary format, return them
-        if results:
-            return results
-        
-        return []
+        return results if results else []
         
     except Exception as e:
         logger.error(f"Error executing query: {e}")
